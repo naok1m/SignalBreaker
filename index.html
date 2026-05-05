@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Signal Breaker</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="scanline"></div>
+
+  <!-- TELA INICIAL -->
+  <div id="screen-start" class="screen active">
+    <div class="start-container">
+      <h1 class="glitch" data-text="SIGNAL BREAKER">SIGNAL BREAKER</h1>
+      <p class="subtitle">Decodifique funções matemáticas. Quebre o sinal. Acesse o sistema.</p>
+      <p class="subtitle-small">Ajuste os parâmetros <span class="highlight">a</span> e <span class="highlight">b</span> da função <span class="highlight">f(x) = ax + b</span> para hackear cada nível.</p>
+      <button id="btn-start" class="btn-neon">[ INICIAR MISSÃO ]</button>
+    </div>
+  </div>
+
+  <!-- TELA DO JOGO -->
+  <div id="screen-game" class="screen">
+    <header class="game-header">
+      <div class="header-left">
+        <span class="label">NÍVEL</span>
+        <span id="level-display" class="value">01</span>
+        <span class="label">/ </span>
+        <span id="level-total" class="value">06</span>
+      </div>
+      <div class="header-center">
+        <div class="progress-bar">
+          <div id="progress-fill" class="progress-fill"></div>
+        </div>
+      </div>
+      <div class="header-right">
+        <span class="label">TENTATIVAS:</span>
+        <span id="attempts" class="value">0</span>
+      </div>
+    </header>
+
+    <main class="game-main">
+      <div class="panel panel-signal">
+        <h2 class="panel-title">&gt; SINAL INTERCEPTADO</h2>
+        <div class="signal-grid">
+          <div class="signal-col">
+            <h3>INPUT (x)</h3>
+            <div id="inputs" class="signal-values"></div>
+          </div>
+          <div class="signal-col">
+            <h3>OUTPUT ESPERADO</h3>
+            <div id="expected-outputs" class="signal-values"></div>
+          </div>
+          <div class="signal-col col-calculated">
+            <h3>SEU OUTPUT</h3>
+            <div id="calculated-outputs" class="signal-values"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel panel-controls">
+        <h2 class="panel-title">&gt; PAINEL DE CONTROLE</h2>
+        <div class="function-display">f(x) = <span id="display-a">0</span>x + <span id="display-b">0</span></div>
+
+        <div class="slider-group">
+          <label>Parâmetro <span class="highlight">a</span> (inclinação)</label>
+          <div class="slider-row">
+            <button class="btn-adjust" data-param="a" data-delta="-1">−</button>
+            <input type="range" id="slider-a" min="-10" max="10" value="0" step="1">
+            <button class="btn-adjust" data-param="a" data-delta="1">+</button>
+            <span id="value-a" class="param-value">0</span>
+          </div>
+        </div>
+
+        <div class="slider-group">
+          <label>Parâmetro <span class="highlight">b</span> (deslocamento)</label>
+          <div class="slider-row">
+            <button class="btn-adjust" data-param="b" data-delta="-1">−</button>
+            <input type="range" id="slider-b" min="-10" max="10" value="0" step="1">
+            <button class="btn-adjust" data-param="b" data-delta="1">+</button>
+            <span id="value-b" class="param-value">0</span>
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button id="btn-execute" class="btn-neon">[ EXECUTAR SINAL ]</button>
+          <button id="btn-hint" class="btn-secondary">[ VER DICA ]</button>
+        </div>
+      </div>
+
+      <div id="feedback" class="panel panel-feedback hidden">
+        <div id="feedback-text"></div>
+      </div>
+    </main>
+  </div>
+
+  <!-- TELA FINAL -->
+  <div id="screen-end" class="screen">
+    <div class="start-container">
+      <h1 class="glitch" data-text="ACESSO TOTAL">ACESSO TOTAL</h1>
+      <p class="subtitle">Todos os sinais foram quebrados com sucesso.</p>
+      <div class="end-stats">
+        <p>Níveis completos: <span class="highlight" id="end-levels">6</span></p>
+        <p>Total de tentativas: <span class="highlight" id="end-attempts">0</span></p>
+        <p id="end-rating" class="end-rating"></p>
+      </div>
+      <button id="btn-restart" class="btn-neon">[ REINICIAR MISSÃO ]</button>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
