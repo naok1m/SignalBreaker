@@ -14,7 +14,7 @@
     <div class="start-container">
       <h1 class="glitch" data-text="SIGNAL BREAKER">SIGNAL BREAKER</h1>
       <p class="subtitle">Decodifique funções matemáticas. Quebre o sinal. Acesse o sistema.</p>
-      <p class="subtitle-small">Ajuste os parâmetros <span class="highlight">a</span> e <span class="highlight">b</span> da função <span class="highlight">f(x) = ax + b</span> para hackear cada nível.</p>
+      <p class="subtitle-small">Observe os pares de valores e escolha qual função <span class="highlight">f(x) = ax + b</span> gera todos os outputs.</p>
       <button id="btn-start" class="btn-neon">[ INICIAR MISSÃO ]</button>
     </div>
   </div>
@@ -51,39 +51,16 @@
             <h3>OUTPUT ESPERADO</h3>
             <div id="expected-outputs" class="signal-values"></div>
           </div>
-          <div class="signal-col col-calculated">
-            <h3>SEU OUTPUT</h3>
-            <div id="calculated-outputs" class="signal-values"></div>
-          </div>
         </div>
       </div>
 
       <div class="panel panel-controls">
-        <h2 class="panel-title">&gt; PAINEL DE CONTROLE</h2>
-        <div class="function-display">f(x) = <span id="display-a">0</span>x + <span id="display-b">0</span></div>
-
-        <div class="slider-group">
-          <label>Parâmetro <span class="highlight">a</span> (inclinação)</label>
-          <div class="slider-row">
-            <button class="btn-adjust" data-param="a" data-delta="-1">−</button>
-            <input type="range" id="slider-a" min="-10" max="10" value="0" step="1">
-            <button class="btn-adjust" data-param="a" data-delta="1">+</button>
-            <span id="value-a" class="param-value">0</span>
-          </div>
-        </div>
-
-        <div class="slider-group">
-          <label>Parâmetro <span class="highlight">b</span> (deslocamento)</label>
-          <div class="slider-row">
-            <button class="btn-adjust" data-param="b" data-delta="-1">−</button>
-            <input type="range" id="slider-b" min="-10" max="10" value="0" step="1">
-            <button class="btn-adjust" data-param="b" data-delta="1">+</button>
-            <span id="value-b" class="param-value">0</span>
-          </div>
-        </div>
+        <h2 class="panel-title">&gt; QUAL FUNÇÃO QUEBRA O SINAL?</h2>
+        <div id="question-prompt" class="quiz-prompt"></div>
+        <div id="answer-options" class="answer-options" role="listbox" aria-label="Opções de resposta"></div>
 
         <div class="btn-row">
-          <button id="btn-execute" class="btn-neon">[ EXECUTAR SINAL ]</button>
+          <button id="btn-execute" class="btn-neon" disabled>[ CONFIRMAR RESPOSTA ]</button>
           <button id="btn-hint" class="btn-secondary">[ VER DICA ]</button>
         </div>
       </div>

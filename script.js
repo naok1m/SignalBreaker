@@ -1,55 +1,57 @@
 const LEVELS = [
-  { a: 1,  b: 1, inputs: [1, 2, 3, 4] },
-  { a: 2,  b: 0, inputs: [1, 2, 3, 4] },
-  { a: 2,  b: 1, inputs: [1, 2, 3, 4] },
+  { a: 1, b: 1, inputs: [1, 2, 3, 4] },
+  { a: 2, b: 0, inputs: [1, 2, 3, 4] },
+  { a: 2, b: 1, inputs: [1, 2, 3, 4] },
   { a: -1, b: 5, inputs: [0, 1, 2, 3] },
-  { a: 3,  b: -2, inputs: [1, 2, 3, 4] },
+  { a: 3, b: -2, inputs: [1, 2, 3, 4] },
   { a: -2, b: 8, inputs: [0, 1, 2, 3] },
 ];
 
 const HINTS = [
-  "Observe se os valores crescem sempre na mesma proporção.",
-  "O parâmetro a controla a inclinação/crescimento da função.",
-  "O parâmetro b desloca todos os resultados para cima ou para baixo.",
-  "Compare o primeiro input com o primeiro output.",
-  "Se os outputs diminuem quando os inputs aumentam, a pode ser negativo.",
-  "Quando x = 0, f(0) = b. Use isso para encontrar b.",
-  "A diferença entre outputs consecutivos é igual ao valor de a.",
-  "Tente calcular: (output - b) / input para encontrar a.",
+  "Compare dois outputs seguidos. A diferença entre eles mostra o valor de a.",
+  "Depois de descobrir a, use um par da tabela em b = output - (a x input).",
+  "Se os outputs diminuem quando os inputs aumentam, o valor de a é negativo.",
+  "Quando x = 0 aparece na tabela, o output desse par já é o valor de b.",
 ];
 
-const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
+let audioCtx = null;
 let currentLevel = 0;
 let totalAttempts = 0;
 let levelAttempts = 0;
 let hintIndex = 0;
+let selectedOptionIndex = null;
+let currentOptions = [];
+let lockedLevel = false;
 
 const $ = (id) => document.getElementById(id);
 
-const sliderA = $("slider-a");
-const sliderB = $("slider-b");
-const valueA = $("value-a");
-const valueB = $("value-b");
-const displayA = $("display-a");
-const displayB = $("display-b");
 const inputsEl = $("inputs");
 const expectedEl = $("expected-outputs");
-const calculatedEl = $("calculated-outputs");
+const optionsEl = $("answer-options");
+const questionPrompt = $("question-prompt");
 const feedbackPanel = $("feedback");
 const feedbackText = $("feedback-text");
 const levelDisplay = $("level-display");
 const levelTotal = $("level-total");
 const attemptsEl = $("attempts");
 const progressFill = $("progress-fill");
+const confirmButton = $("btn-execute");
+
+function ensureAudioContext() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  audioCtx.resume();
+}
 
 function showScreen(id) {
-  document.querySelectorAll(".screen").forEach((s) => s.classList.remove("active"));
+  document.querySelectorAll(".screen").forEach((screen) => screen.classList.remove("active"));
   $(id).classList.add("active");
 }
 
 function playSound(type) {
   try {
+    ensureAudioContext();
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
     osc.connect(gain);
@@ -80,13 +82,13 @@ function playSound(type) {
       osc.stop(audioCtx.currentTime + 0.05);
     }
   } catch (e) {
-    // Web Audio not available
+    // Web Audio not available.
   }
 }
 
 let typingInterval = null;
 
-function typeText(element, text, speed = 20) {
+function typeText(element, text, speed = 15) {
   if (typingInterval) clearInterval(typingInterval);
   element.textContent = "";
   let i = 0;
@@ -104,32 +106,100 @@ function typeText(element, text, speed = 20) {
 
 function formatFunction(a, b) {
   let str = "f(x) = ";
+
   if (a === 1) str += "x";
   else if (a === -1) str += "-x";
-  else str += a + "x";
+  else str += `${a}x`;
 
-  if (b > 0) str += " + " + b;
-  else if (b < 0) str += " - " + Math.abs(b);
+  if (b > 0) str += ` + ${b}`;
+  else if (b < 0) str += ` - ${Math.abs(b)}`;
 
   return str;
+}
+
+function sameFunction(first, second) {
+  return first.a === second.a && first.b === second.b;
+}
+
+function uniqueOptions(options) {
+  return options.filter((option, index, list) => (
+    list.findIndex((candidate) => sameFunction(candidate, option)) === index
+  ));
+}
+
+function makeOptions(level, index) {
+  const candidates = uniqueOptions([
+    { a: level.a, b: level.b, correct: true },
+    { a: level.a + 1, b: level.b, correct: false },
+    { a: level.a - 1, b: level.b, correct: false },
+    { a: level.a, b: level.b + 1, correct: false },
+    { a: level.a, b: level.b - 1, correct: false },
+    { a: -level.a, b: level.b, correct: false },
+    { a: level.a, b: -level.b, correct: false },
+  ]);
+
+  const correct = candidates.find((option) => option.correct);
+  const distractors = candidates.filter((option) => !option.correct).slice(0, 3);
+  const options = [correct, ...distractors];
+  const shift = index % options.length;
+
+  return [...options.slice(shift), ...options.slice(0, shift)];
+}
+
+function renderOptions() {
+  optionsEl.innerHTML = "";
+
+  currentOptions.forEach((option, index) => {
+    const button = document.createElement("button");
+    const letter = String.fromCharCode(65 + index);
+    button.className = "answer-option";
+    button.type = "button";
+    button.dataset.index = index;
+    button.setAttribute("role", "option");
+    button.setAttribute("aria-selected", "false");
+    button.innerHTML = `
+      <span class="option-letter">${letter}</span>
+      <span class="option-function">${formatFunction(option.a, option.b)}</span>
+    `;
+    button.addEventListener("click", () => selectOption(index));
+    optionsEl.appendChild(button);
+  });
+}
+
+function selectOption(index) {
+  if (lockedLevel) return;
+
+  playSound("click");
+  selectedOptionIndex = index;
+  confirmButton.disabled = false;
+  hideFeedback();
+
+  optionsEl.querySelectorAll(".answer-option").forEach((button, buttonIndex) => {
+    const selected = buttonIndex === index;
+    button.classList.remove("wrong");
+    button.classList.toggle("selected", selected);
+    button.setAttribute("aria-selected", selected ? "true" : "false");
+  });
 }
 
 function loadLevel(index) {
   const level = LEVELS[index];
   levelAttempts = 0;
   hintIndex = 0;
-
-  sliderA.value = 0;
-  sliderB.value = 0;
+  selectedOptionIndex = null;
+  lockedLevel = false;
+  currentOptions = makeOptions(level, index);
 
   levelDisplay.textContent = String(index + 1).padStart(2, "0");
   levelTotal.textContent = String(LEVELS.length).padStart(2, "0");
   attemptsEl.textContent = totalAttempts;
-  progressFill.style.width = ((index / LEVELS.length) * 100) + "%";
+  progressFill.style.width = `${(index / LEVELS.length) * 100}%`;
+  confirmButton.disabled = true;
+  confirmButton.textContent = "[ CONFIRMAR RESPOSTA ]";
 
+  questionPrompt.textContent = "Escolha a função que transforma todos os inputs nos outputs da tabela.";
   inputsEl.innerHTML = "";
   expectedEl.innerHTML = "";
-  calculatedEl.innerHTML = "";
 
   level.inputs.forEach((x) => {
     const inputCell = document.createElement("div");
@@ -141,39 +211,10 @@ function loadLevel(index) {
     expectedCell.className = "signal-cell expected-cell";
     expectedCell.textContent = level.a * x + level.b;
     expectedEl.appendChild(expectedCell);
-
-    const calcCell = document.createElement("div");
-    calcCell.className = "signal-cell calc-cell";
-    calcCell.textContent = "?";
-    calculatedEl.appendChild(calcCell);
   });
 
+  renderOptions();
   hideFeedback();
-  updateParams();
-}
-
-function updateParams() {
-  const a = parseInt(sliderA.value);
-  const b = parseInt(sliderB.value);
-  valueA.textContent = a;
-  valueB.textContent = b;
-  displayA.textContent = a;
-  displayB.textContent = b;
-  updateCalculated();
-}
-
-function updateCalculated() {
-  const a = parseInt(sliderA.value);
-  const b = parseInt(sliderB.value);
-  const level = LEVELS[currentLevel];
-  const cells = calculatedEl.querySelectorAll(".signal-cell");
-  const expectedCells = expectedEl.querySelectorAll(".signal-cell");
-
-  level.inputs.forEach((x, i) => {
-    const result = a * x + b;
-    cells[i].textContent = result;
-    cells[i].classList.remove("match", "mismatch");
-  });
 }
 
 function hideFeedback() {
@@ -184,31 +225,59 @@ function hideFeedback() {
 function showFeedback(message, isSuccess) {
   feedbackPanel.classList.remove("hidden", "success", "error");
   feedbackPanel.classList.add(isSuccess ? "success" : "error");
-  typeText(feedbackText, message, 15);
+  typeText(feedbackText, message);
+}
+
+function markOptions(isSuccess) {
+  optionsEl.querySelectorAll(".answer-option").forEach((button, index) => {
+    const option = currentOptions[index];
+    button.disabled = isSuccess;
+    button.classList.toggle("correct", isSuccess && option.correct);
+    button.classList.toggle("wrong", !option.correct && index === selectedOptionIndex);
+  });
+}
+
+function explainWrongAnswer(level, selected) {
+  const x = level.inputs[0];
+  const selectedOutput = selected.a * x + selected.b;
+  const expectedOutput = level.a * x + level.b;
+  const baseHint = HINTS[hintIndex % HINTS.length];
+  hintIndex++;
+
+  return [
+    "> SINAL REJEITADO.",
+    "",
+    `Testando ${formatFunction(selected.a, selected.b)} no primeiro input:`,
+    `para x = ${x}, ela gera ${selectedOutput}, mas a tabela pede ${expectedOutput}.`,
+    "",
+    `Dica: ${baseHint}`,
+  ].join("\n");
 }
 
 function checkAnswer() {
-  const a = parseInt(sliderA.value);
-  const b = parseInt(sliderB.value);
-  const level = LEVELS[currentLevel];
+  if (selectedOptionIndex === null || lockedLevel) return;
 
-  if (a === level.a && b === level.b) {
+  const level = LEVELS[currentLevel];
+  const selected = currentOptions[selectedOptionIndex];
+
+  if (selected.correct) {
+    lockedLevel = true;
     playSound("success");
+    markOptions(true);
 
     const panel = document.querySelector(".panel-signal");
     panel.classList.add("success-flash");
     setTimeout(() => panel.classList.remove("success-flash"), 800);
 
-    const cells = calculatedEl.querySelectorAll(".signal-cell");
-    cells.forEach((c) => {
-      c.classList.remove("mismatch");
-      c.classList.add("match");
-    });
+    showFeedback([
+      "> SINAL DECODIFICADO!",
+      "",
+      `A função correta era ${formatFunction(level.a, level.b)}.`,
+      `O valor de a (${level.a}) é a diferença entre outputs consecutivos; b (${level.b}) ajusta o resultado final.`,
+    ].join("\n"), true);
 
-    const funcStr = formatFunction(level.a, level.b);
-    const msg = `> SINAL DECODIFICADO!\n\nA função era ${funcStr}.\nO valor de a (${level.a}) multiplica cada entrada e o valor de b (${level.b}) ajusta o resultado final.`;
-
-    showFeedback(msg, true);
+    confirmButton.disabled = true;
+    confirmButton.textContent = "[ AVANÇANDO... ]";
 
     setTimeout(() => {
       currentLevel++;
@@ -217,40 +286,14 @@ function checkAnswer() {
       } else {
         loadLevel(currentLevel);
       }
-    }, 3000);
+    }, 2600);
   } else {
     playSound("error");
     totalAttempts++;
     levelAttempts++;
     attemptsEl.textContent = totalAttempts;
-
-    const cells = calculatedEl.querySelectorAll(".signal-cell");
-    const expectedCells = expectedEl.querySelectorAll(".signal-cell");
-
-    level.inputs.forEach((x, i) => {
-      const result = a * x + b;
-      const expected = level.a * x + level.b;
-      if (result !== expected) {
-        cells[i].classList.add("mismatch");
-      }
-    });
-
-    const hint = HINTS[hintIndex % HINTS.length];
-    hintIndex++;
-
-    let msg = `> SINAL REJEITADO.\n\nSua função: f(x) = ${a}x + ${b}\n`;
-
-    if (a !== level.a && b !== level.b) {
-      msg += "Tanto a quanto b estão incorretos.\n";
-    } else if (a !== level.a) {
-      msg += "O parâmetro b está correto, mas a está errado.\n";
-    } else {
-      msg += "O parâmetro a está correto, mas b está errado.\n";
-    }
-
-    msg += `\nDica: ${hint}`;
-
-    showFeedback(msg, false);
+    markOptions(false);
+    showFeedback(explainWrongAnswer(level, selected), false);
   }
 }
 
@@ -261,11 +304,14 @@ function showHint() {
   const expectedSecond = level.a * level.inputs[1] + level.b;
   const diff = expectedSecond - expectedFirst;
 
-  let hint = `> DICA DO SISTEMA\n\n`;
-  hint += `A diferença entre outputs consecutivos é ${diff}.\n`;
-  hint += `Isso significa que a = ${diff}.\n`;
-  hint += `Se a = ${diff}, então b = output - (a × input).\n`;
-  hint += `Tente: b = ${expectedFirst} - (${diff} × ${level.inputs[0]}) = ${expectedFirst - diff * level.inputs[0]}`;
+  const hint = [
+    "> DICA DO SISTEMA",
+    "",
+    `A diferença entre outputs consecutivos é ${diff}.`,
+    `Isso indica que a = ${diff}.`,
+    `Agora use b = output - (a x input).`,
+    `Com o primeiro par: b = ${expectedFirst} - (${diff} x ${level.inputs[0]}) = ${expectedFirst - diff * level.inputs[0]}.`,
+  ].join("\n");
 
   showFeedback(hint, false);
   feedbackPanel.classList.remove("error");
@@ -285,13 +331,13 @@ function endGame() {
 
     let rating;
     if (totalAttempts === 0) {
-      rating = "CLASSIFICAÇÃO: ELITE HACKER — Zero erros. Impressionante.";
+      rating = "CLASSIFICAÇÃO: ELITE HACKER - Zero erros. Impressionante.";
     } else if (totalAttempts <= 3) {
-      rating = "CLASSIFICAÇÃO: HACKER AVANÇADO — Poucos erros. Excelente desempenho.";
+      rating = "CLASSIFICAÇÃO: HACKER AVANÇADO - Poucos erros. Excelente desempenho.";
     } else if (totalAttempts <= 8) {
-      rating = "CLASSIFICAÇÃO: HACKER INTERMEDIÁRIO — Bom trabalho, continue praticando.";
+      rating = "CLASSIFICAÇÃO: HACKER INTERMEDIÁRIO - Bom trabalho, continue praticando.";
     } else {
-      rating = "CLASSIFICAÇÃO: HACKER INICIANTE — Cada erro é aprendizado. Tente novamente!";
+      rating = "CLASSIFICAÇÃO: HACKER INICIANTE - Cada erro é aprendizado. Tente novamente!";
     }
 
     $("end-rating").textContent = rating;
@@ -307,37 +353,27 @@ function resetGame() {
   loadLevel(0);
 }
 
-// Event listeners
 $("btn-start").addEventListener("click", () => {
-  audioCtx.resume();
+  ensureAudioContext();
   playSound("click");
   showScreen("screen-game");
   loadLevel(0);
 });
 
-$("btn-execute").addEventListener("click", checkAnswer);
+confirmButton.addEventListener("click", checkAnswer);
 $("btn-hint").addEventListener("click", showHint);
 $("btn-restart").addEventListener("click", () => {
   playSound("click");
   resetGame();
 });
 
-sliderA.addEventListener("input", updateParams);
-sliderB.addEventListener("input", updateParams);
-
-document.querySelectorAll(".btn-adjust").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    playSound("click");
-    const param = btn.dataset.param;
-    const delta = parseInt(btn.dataset.delta);
-    const slider = param === "a" ? sliderA : sliderB;
-    const newVal = Math.max(-10, Math.min(10, parseInt(slider.value) + delta));
-    slider.value = newVal;
-    updateParams();
-  });
-});
-
 document.addEventListener("keydown", (e) => {
   if (!$("screen-game").classList.contains("active")) return;
+
+  if (e.key >= "1" && e.key <= "4") {
+    const optionIndex = Number(e.key) - 1;
+    if (currentOptions[optionIndex]) selectOption(optionIndex);
+  }
+
   if (e.key === "Enter") checkAnswer();
 });
