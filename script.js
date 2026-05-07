@@ -3,8 +3,6 @@ const LEVELS = [
   { a: 2, b: 0, inputs: [1, 2, 3, 4] },
   { a: 2, b: 1, inputs: [1, 2, 3, 4] },
   { a: -1, b: 5, inputs: [0, 1, 2, 3] },
-  { a: 3, b: -2, inputs: [1, 2, 3, 4] },
-  { a: -2, b: 8, inputs: [0, 1, 2, 3] },
 ];
 
 const HINTS = [
